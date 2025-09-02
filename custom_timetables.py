@@ -95,22 +95,26 @@ class MonthlyLastDay(Timetable):
         restriction: TimeRestriction
     ) -> DagRunInfo | None:
         tz = pendulum_timezone(self.tz)
-        # Use pendulum.now(tz) for current time
-        earliest = restriction.earliest or pendulum.now(tz)
-        now = pendulum.now(tz)
+        # Establish a baseline: when catchup is disabled, we schedule from "now" forward.
+        baseline = restriction.earliest or pendulum.now(tz)
+        current_time = pendulum.now(tz)
+        if not restriction.catchup:
+            baseline = max(baseline, current_time)
 
         if last_automated_data_interval is None:
-            next_run = earliest
+            after = baseline
         else:
-            next_run = last_automated_data_interval.end
+            after = last_automated_data_interval.end
+            if not restriction.catchup and after < current_time:
+                after = current_time
 
-        year = next_run.year
-        month = next_run.month
+        year = after.year
+        month = after.month
 
-        # Find the next last day of the month >= both next_run and earliest
+        # Find the next last day of the month >= after
         while True:
             last_day = self._get_last_day(year, month)
-            if last_day >= next_run and last_day >= earliest:
+            if last_day >= after:
                 break
             if month == 12:
                 year += 1
@@ -120,10 +124,6 @@ class MonthlyLastDay(Timetable):
 
         start = last_day
         end = start.add(hours=1)
-
-        # If catchup is False, do not schedule runs in the past
-        if not restriction.catchup and start < now:
-            return None
 
         if restriction.latest is not None and start > restriction.latest:
             return None
@@ -198,22 +198,26 @@ class MonthlyOnDay(Timetable):
         restriction: TimeRestriction
     ) -> DagRunInfo | None:
         tz = pendulum_timezone(self.tz)
-        # Use pendulum.now(tz) for current time
-        earliest = restriction.earliest or pendulum.now(tz)
-        now = pendulum.now(tz)
+        # Establish a baseline: when catchup is disabled, schedule from "now" forward.
+        baseline = restriction.earliest or pendulum.now(tz)
+        current_time = pendulum.now(tz)
+        if not restriction.catchup:
+            baseline = max(baseline, current_time)
 
         if last_automated_data_interval is None:
-            next_run = earliest
+            after = baseline
         else:
-            next_run = last_automated_data_interval.end
+            after = last_automated_data_interval.end
+            if not restriction.catchup and after < current_time:
+                after = current_time
 
-        year = next_run.year
-        month = next_run.month
+        year = after.year
+        month = after.month
 
-        # Find the next run date >= both next_run and earliest
+        # Find the next run date >= after
         while True:
             run_date = self._get_run_date(year, month)
-            if run_date >= next_run and run_date >= earliest:
+            if run_date >= after:
                 break
             if month == 12:
                 year += 1
@@ -223,10 +227,6 @@ class MonthlyOnDay(Timetable):
 
         start = run_date
         end = start.add(hours=1)
-
-        # If catchup is False, do not schedule runs in the past
-        if not restriction.catchup and start < now:
-            return None
 
         if restriction.latest is not None and start > restriction.latest:
             return None
@@ -322,26 +322,19 @@ class MonthlyMultipleDays(Timetable):
         restriction: TimeRestriction
     ) -> DagRunInfo | None:
         tz = pendulum_timezone(self.tz)
-        earliest = restriction.earliest or pendulum.now(tz)
-        now = pendulum.now(tz)
-
-        # If catchup is False, do not schedule runs in the past
-        min_start = now if not restriction.catchup else earliest
+        current_time = pendulum.now(tz)
+        baseline = restriction.earliest or current_time
+        if not restriction.catchup:
+            baseline = max(baseline, current_time)
 
         if last_automated_data_interval is None:
-            after = min_start
+            after = baseline
         else:
-            candidate = last_automated_data_interval.end
-            if not restriction.catchup and candidate < now:
-                after = now
-            else:
-                after = candidate
+            after = last_automated_data_interval.end
+            if not restriction.catchup and after < current_time:
+                after = current_time
 
         next_run = self._get_next_run_date(after)
-
-        # If the next run would be in the past and catchup is False, do not schedule
-        if not restriction.catchup and next_run < now:
-            return None
 
         end = next_run.add(hours=1)
 
@@ -430,21 +423,25 @@ class QuarterlyFirstDay(Timetable):
         restriction: TimeRestriction
     ) -> DagRunInfo | None:
         tz = pendulum_timezone(self.tz)
-        earliest = restriction.earliest or pendulum.now(tz)
-        now = pendulum.now(tz)
+        current_time = pendulum.now(tz)
+        baseline = restriction.earliest or current_time
+        if not restriction.catchup:
+            baseline = max(baseline, current_time)
 
         if last_automated_data_interval is None:
-            next_run = earliest
+            next_run = baseline
         else:
             next_run = last_automated_data_interval.end
+            if not restriction.catchup and next_run < current_time:
+                next_run = current_time
 
         year = next_run.year
         month = next_run.month
 
-        # Find the next first day of the quarter >= both next_run and earliest
+        # Find the next first day of the quarter >= next_run
         while True:
             first_day = self._get_first_day_of_quarter(year, month)
-            if first_day >= next_run and first_day >= earliest:
+            if first_day >= next_run:
                 break
             # Move to next quarter
             if month in [1, 2, 3]:
@@ -459,10 +456,6 @@ class QuarterlyFirstDay(Timetable):
 
         start = first_day
         end = start.add(hours=1)
-
-        # If catchup is False, do not schedule runs in the past
-        if not restriction.catchup and start < now:
-            return None
 
         if restriction.latest is not None and start > restriction.latest:
             return None
@@ -549,21 +542,25 @@ class QuarterlyLastDay(Timetable):
         restriction: TimeRestriction
     ) -> DagRunInfo | None:
         tz = pendulum_timezone(self.tz)
-        earliest = restriction.earliest or pendulum.now(tz)
-        now = pendulum.now(tz)
+        current_time = pendulum.now(tz)
+        baseline = restriction.earliest or current_time
+        if not restriction.catchup:
+            baseline = max(baseline, current_time)
 
         if last_automated_data_interval is None:
-            next_run = earliest
+            next_run = baseline
         else:
             next_run = last_automated_data_interval.end
+            if not restriction.catchup and next_run < current_time:
+                next_run = current_time
 
         year = next_run.year
         month = next_run.month
 
-        # Find the next last day of the quarter >= both next_run and earliest
+        # Find the next last day of the quarter >= next_run
         while True:
             last_day = self._get_last_day_of_quarter(year, month)
-            if last_day >= next_run and last_day >= earliest:
+            if last_day >= next_run:
                 break
             # Move to next quarter
             if month in [1, 2, 3]:
@@ -578,10 +575,6 @@ class QuarterlyLastDay(Timetable):
 
         start = last_day
         end = start.add(hours=1)
-
-        # If catchup is False, do not schedule runs in the past
-        if not restriction.catchup and start < now:
-            return None
 
         if restriction.latest is not None and start > restriction.latest:
             return None
@@ -651,29 +644,29 @@ class YearlyFirstDay(Timetable):
         restriction: TimeRestriction
     ) -> DagRunInfo | None:
         tz = pendulum_timezone(self.tz)
-        earliest = restriction.earliest or pendulum.now(tz)
-        now = pendulum.now(tz)
+        current_time = pendulum.now(tz)
+        baseline = restriction.earliest or current_time
+        if not restriction.catchup:
+            baseline = max(baseline, current_time)
 
         if last_automated_data_interval is None:
-            next_run = earliest
+            next_run = baseline
         else:
             next_run = last_automated_data_interval.end
+            if not restriction.catchup and next_run < current_time:
+                next_run = current_time
 
         year = next_run.year
 
-        # Find the next first day of the year >= both next_run and earliest
+        # Find the next first day of the year >= next_run
         while True:
             first_day = self._get_first_day_of_year(year)
-            if first_day >= next_run and first_day >= earliest:
+            if first_day >= next_run:
                 break
             year += 1
 
         start = first_day
         end = start.add(hours=1)
-
-        # If catchup is False, do not schedule runs in the past
-        if not restriction.catchup and start < now:
-            return None
 
         if restriction.latest is not None and start > restriction.latest:
             return None
@@ -752,29 +745,29 @@ class YearlyWeekdayOccurrence(Timetable):
         restriction: TimeRestriction
     ) -> DagRunInfo | None:
         tz = pendulum_timezone(self.tz)
-        earliest = restriction.earliest or pendulum.now(tz)
-        now = pendulum.now(tz)
+        current_time = pendulum.now(tz)
+        baseline = restriction.earliest or current_time
+        if not restriction.catchup:
+            baseline = max(baseline, current_time)
 
         if last_automated_data_interval is None:
-            next_run = earliest
+            next_run = baseline
         else:
             next_run = last_automated_data_interval.end
+            if not restriction.catchup and next_run < current_time:
+                next_run = current_time
 
         year = next_run.year
 
-        # Find the next nth weekday in the configured month >= both next_run and earliest
+        # Find the next nth weekday in the configured month >= next_run
         while True:
             nth_weekday = self._get_nth_weekday(year)
-            if nth_weekday >= next_run and nth_weekday >= earliest:
+            if nth_weekday >= next_run:
                 break
             year += 1
 
         start = nth_weekday
         end = start.add(hours=1)
-
-        # If catchup is False, do not schedule runs in the past
-        if not restriction.catchup and start < now:
-            return None
 
         if restriction.latest is not None and start > restriction.latest:
             return None
@@ -857,10 +850,16 @@ class WeeklyOnDay(Timetable):
 
     def next_dagrun_info(self, *, last_automated_data_interval, restriction):
         tz = pendulum_timezone(self.tz)
+        current_time = datetime.now(tz)
+        baseline = restriction.earliest or current_time
+        if not restriction.catchup:
+            baseline = max(baseline, current_time)
         if last_automated_data_interval is None:
-            after = restriction.earliest or datetime.now(tz)
+            after = baseline
         else:
             after = last_automated_data_interval.end
+            if not restriction.catchup and after < current_time:
+                after = current_time
         next_run = self._get_next_weekday(after)
         return DagRunInfo.interval(next_run, next_run.add(hours=1))
 
@@ -947,10 +946,16 @@ class BiweeklyOnDay(Timetable):
 
     def next_dagrun_info(self, *, last_automated_data_interval, restriction):
         tz = pendulum_timezone(self.tz)
+        current_time = datetime.now(tz)
+        baseline = restriction.earliest or current_time
+        if not restriction.catchup:
+            baseline = max(baseline, current_time)
         if last_automated_data_interval is None:
-            after = restriction.earliest or datetime.now(tz)
+            after = baseline
         else:
             after = last_automated_data_interval.end
+            if not restriction.catchup and after < current_time:
+                after = current_time
         next_run = self._get_next_biweekly(after)
         return DagRunInfo.interval(next_run, next_run.add(hours=1))
 
@@ -1034,10 +1039,16 @@ class SemiMonthly(Timetable):
 
     def next_dagrun_info(self, *, last_automated_data_interval, restriction):
         tz = pendulum_timezone(self.tz)
+        current_time = datetime.now(tz)
+        baseline = restriction.earliest or current_time
+        if not restriction.catchup:
+            baseline = max(baseline, current_time)
         if last_automated_data_interval is None:
-            after = restriction.earliest or datetime.now(tz)
+            after = baseline
         else:
             after = last_automated_data_interval.end
+            if not restriction.catchup and after < current_time:
+                after = current_time
         next_run = self._get_next_run_date(after)
         return DagRunInfo.interval(next_run, next_run.add(hours=1))
 
@@ -1136,10 +1147,16 @@ class MonthlyWeekdayOccurrence(Timetable):
 
     def next_dagrun_info(self, *, last_automated_data_interval: DataInterval | None, restriction: TimeRestriction) -> DagRunInfo | None:
         tz = pendulum_timezone(self.tz)
+        current_time = datetime.now(tz)
+        baseline = restriction.earliest or current_time
+        if not restriction.catchup:
+            baseline = max(baseline, current_time)
         if last_automated_data_interval is None:
-            next_run = restriction.earliest or datetime.now(tz)
+            next_run = baseline
         else:
             next_run = last_automated_data_interval.end
+            if not restriction.catchup and next_run < current_time:
+                next_run = current_time
 
         year = next_run.year
         month = next_run.month
@@ -1214,15 +1231,21 @@ class EveryNDays(Timetable):
 
     def next_dagrun_info(self, *, last_automated_data_interval: DataInterval | None, restriction: TimeRestriction) -> DagRunInfo | None:
         tz = pendulum_timezone(self.tz)
+        current_time = datetime.now(tz)
+        baseline = restriction.earliest or current_time
+        if not restriction.catchup:
+            baseline = max(baseline, current_time)
         if last_automated_data_interval is None:
-            next_run = restriction.earliest or datetime.now(tz)
-            # Align to the next scheduled time
-            aligned = next_run.replace(hour=self.hour, minute=self.minute, second=self.second, microsecond=0)
-            if aligned < next_run:
-                aligned = aligned.add(days=1)
-            start = aligned
+            next_run = baseline
         else:
-            start = last_automated_data_interval.start.add(days=self.interval_days)
+            next_run = last_automated_data_interval.end
+            if not restriction.catchup and next_run < current_time:
+                next_run = current_time
+        # Align to the next scheduled time on or after next_run
+        aligned = next_run.replace(hour=self.hour, minute=self.minute, second=self.second, microsecond=0)
+        if aligned < next_run:
+            aligned = aligned.add(days=1)
+        start = aligned
         end = start.add(days=self.interval_days)
         return DagRunInfo.interval(start, end)
 
@@ -1315,10 +1338,16 @@ class BusinessDayOfMonth(Timetable):
 
     def next_dagrun_info(self, *, last_automated_data_interval: DataInterval | None, restriction: TimeRestriction) -> DagRunInfo | None:
         tz = pendulum_timezone(self.tz)
+        current_time = datetime.now(tz)
+        baseline = restriction.earliest or current_time
+        if not restriction.catchup:
+            baseline = max(baseline, current_time)
         if last_automated_data_interval is None:
-            next_run = restriction.earliest or datetime.now(tz)
+            next_run = baseline
         else:
             next_run = last_automated_data_interval.end
+            if not restriction.catchup and next_run < current_time:
+                next_run = current_time
 
         year = next_run.year
         month = next_run.month
@@ -1406,10 +1435,16 @@ class MonthlyLastDayExceptWeekend(Timetable):
 
     def next_dagrun_info(self, *, last_automated_data_interval: DataInterval | None, restriction: TimeRestriction) -> DagRunInfo | None:
         tz = pendulum_timezone(self.tz)
+        current_time = datetime.now(tz)
+        baseline = restriction.earliest or current_time
+        if not restriction.catchup:
+            baseline = max(baseline, current_time)
         if last_automated_data_interval is None:
-            next_run = restriction.earliest or datetime.now(tz)
+            next_run = baseline
         else:
             next_run = last_automated_data_interval.end
+            if not restriction.catchup and next_run < current_time:
+                next_run = current_time
 
         year = next_run.year
         month = next_run.month
@@ -1480,8 +1515,6 @@ class EveryNInterval(Timetable):
         EveryNInterval(interval_hours=1, interval_minutes=30, tz="America/New_York")
     """
     def __init__(self, interval_minutes=0, interval_hours=0, tz="America/New_York"):
-        if interval_minutes == 0 and interval_hours == 0:
-            raise ValueError("At least one of interval_minutes or interval_hours must be > 0")
         self.interval_minutes = interval_minutes
         self.interval_hours = interval_hours
         self.tz = tz
@@ -1495,8 +1528,26 @@ class EveryNInterval(Timetable):
             parts.append(f"{self.interval_minutes} minute{'s' if self.interval_minutes != 1 else ''}")
         return f"Every {' and '.join(parts)} ({self.tz})"
 
+    def serialize(self):
+        return {
+            "interval_minutes": self.interval_minutes,
+            "interval_hours": self.interval_hours,
+            "tz": self.tz,
+        }
+
+    @classmethod
+    def deserialize(cls, data):
+        # Provide defaults if missing
+        return cls(
+            interval_minutes=data.get("interval_minutes", 0),
+            interval_hours=data.get("interval_hours", 0),
+            tz=data.get("tz", "America/New_York"),
+        )
+
     def infer_manual_data_interval(self, *, run_after: DateTime) -> DataInterval:
         total_minutes = self.interval_hours * 60 + self.interval_minutes
+        if total_minutes == 0:
+            raise ValueError("At least one of interval_minutes or interval_hours must be > 0")
         interval = duration(minutes=total_minutes)
         anchor = run_after.replace(hour=0, minute=0, second=0, microsecond=0)
         minutes_since_anchor = int((run_after - anchor).total_minutes())
@@ -1511,14 +1562,19 @@ class EveryNInterval(Timetable):
         restriction: TimeRestriction,
     ) -> Optional[DagRunInfo]:
         total_minutes = self.interval_hours * 60 + self.interval_minutes
+        if total_minutes == 0:
+            raise ValueError("At least one of interval_minutes or interval_hours must be > 0")
         interval = duration(minutes=total_minutes)
         tz = self.tz
-        earliest = restriction.earliest or now(tz)
-        anchor = earliest.replace(hour=0, minute=0, second=0, microsecond=0)
-        minutes_since_anchor = int((earliest - anchor).total_minutes())
+        current_time = now(tz)
+        baseline = restriction.earliest or current_time
+        if not restriction.catchup:
+            baseline = max(baseline, current_time)
+        anchor = baseline.replace(hour=0, minute=0, second=0, microsecond=0)
+        minutes_since_anchor = int((baseline - anchor).total_minutes())
         aligned_minutes = (minutes_since_anchor // total_minutes) * total_minutes
         aligned = anchor.add(minutes=aligned_minutes)
-        if aligned < earliest:
+        if aligned < baseline:
             aligned = aligned.add(minutes=total_minutes)
         if last_automated_data_interval:
             next_start = last_automated_data_interval.end
