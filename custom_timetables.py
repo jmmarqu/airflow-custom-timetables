@@ -17,9 +17,11 @@ Each class can be used as the `timetable` argument in your DAG definition for ad
 from airflow.timetables.base import DataInterval, TimeRestriction, DagRunInfo, Timetable
 from airflow.timetables.interval import CronDataIntervalTimetable
 from airflow.plugins_manager import AirflowPlugin
-from pendulum import DateTime, timezone as pendulum_timezone, duration, datetime , now
+from pendulum import DateTime, timezone as pendulum_timezone, duration, datetime, now
 import pendulum
 from typing import Optional
+
+# pendulum.datetime is a factory (creates DateTime). It has no .now(); use pendulum.now(tz).
 
 
 class MonthlyLastDay(Timetable):
@@ -850,7 +852,7 @@ class WeeklyOnDay(Timetable):
 
     def next_dagrun_info(self, *, last_automated_data_interval, restriction):
         tz = pendulum_timezone(self.tz)
-        current_time = datetime.now(tz)
+        current_time = pendulum.now(tz)
         baseline = restriction.earliest or current_time
         if not restriction.catchup:
             baseline = max(baseline, current_time)
@@ -946,7 +948,7 @@ class BiweeklyOnDay(Timetable):
 
     def next_dagrun_info(self, *, last_automated_data_interval, restriction):
         tz = pendulum_timezone(self.tz)
-        current_time = datetime.now(tz)
+        current_time = pendulum.now(tz)
         baseline = restriction.earliest or current_time
         if not restriction.catchup:
             baseline = max(baseline, current_time)
@@ -1039,7 +1041,7 @@ class SemiMonthly(Timetable):
 
     def next_dagrun_info(self, *, last_automated_data_interval, restriction):
         tz = pendulum_timezone(self.tz)
-        current_time = datetime.now(tz)
+        current_time = pendulum.now(tz)
         baseline = restriction.earliest or current_time
         if not restriction.catchup:
             baseline = max(baseline, current_time)
@@ -1147,7 +1149,7 @@ class MonthlyWeekdayOccurrence(Timetable):
 
     def next_dagrun_info(self, *, last_automated_data_interval: DataInterval | None, restriction: TimeRestriction) -> DagRunInfo | None:
         tz = pendulum_timezone(self.tz)
-        current_time = datetime.now(tz)
+        current_time = pendulum.now(tz)
         baseline = restriction.earliest or current_time
         if not restriction.catchup:
             baseline = max(baseline, current_time)
@@ -1231,7 +1233,7 @@ class EveryNDays(Timetable):
 
     def next_dagrun_info(self, *, last_automated_data_interval: DataInterval | None, restriction: TimeRestriction) -> DagRunInfo | None:
         tz = pendulum_timezone(self.tz)
-        current_time = datetime.now(tz)
+        current_time = pendulum.now(tz)
         baseline = restriction.earliest or current_time
         if not restriction.catchup:
             baseline = max(baseline, current_time)
@@ -1338,7 +1340,7 @@ class BusinessDayOfMonth(Timetable):
 
     def next_dagrun_info(self, *, last_automated_data_interval: DataInterval | None, restriction: TimeRestriction) -> DagRunInfo | None:
         tz = pendulum_timezone(self.tz)
-        current_time = datetime.now(tz)
+        current_time = pendulum.now(tz)
         baseline = restriction.earliest or current_time
         if not restriction.catchup:
             baseline = max(baseline, current_time)
@@ -1435,7 +1437,7 @@ class MonthlyLastDayExceptWeekend(Timetable):
 
     def next_dagrun_info(self, *, last_automated_data_interval: DataInterval | None, restriction: TimeRestriction) -> DagRunInfo | None:
         tz = pendulum_timezone(self.tz)
-        current_time = datetime.now(tz)
+        current_time = pendulum.now(tz)
         baseline = restriction.earliest or current_time
         if not restriction.catchup:
             baseline = max(baseline, current_time)
